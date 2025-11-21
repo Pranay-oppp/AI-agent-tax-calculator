@@ -15,11 +15,11 @@ pip install -r requirements.txt
 ### 2. Set Up Environment Variables
 Create a `.env` file:
 ```env
-OPENROUTER_API_KEY=your_api_key_here
-MODEL_NAME=mistralai/mistral-7b-instruct
+# OPENROUTER_API_KEY=your_api_key_here
+# MODEL_NAME=mistralai/mistral-7b-instruct
 ```
 
-Get your API key from: https://openrouter.ai/
+# Get your API key from: https://openrouter.ai/
 
 ### 3. Run the Application
 ```bash
