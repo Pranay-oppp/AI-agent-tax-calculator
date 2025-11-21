@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tax Return Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧾 AI Tax Return Agent</h1>
+            <p class="subtitle">Automated Tax Return Preparation Prototype</p>
+            <div class="disclaimer">
+                ⚠️ <strong>DISCLAIMER:</strong> This is a prototype for demonstration purposes only. DO NOT use for actual tax filing.
+            </div>
+        </header>
+
+        <main>
+            <!-- Step 1: Personal Information -->
+            <section class="card">
+                <h2>📋 Step 1: Personal Information</h2>
+                <form id="taxForm">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" placeholder="John Doe" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ssn">Social Security Number</label>
+                        <input type="text" id="ssn" name="ssn" placeholder="XXX-XX-XXXX" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="address">Address</label>
+                        <input type="text" id="address" name="address" placeholder="123 Main St, City, State ZIP" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="filing_status">Filing Status</label>
+                        <select id="filing_status" name="filing_status" required>
+                            <option value="Single">Single</option>
+                            <option value="Married Filing Jointly">Married Filing Jointly</option>
+                            <option value="Married Filing Separately">Married Filing Separately</option>
+                            <option value="Head of Household">Head of Household</option>
+                        </select>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Step 2: Upload Documents -->
+            <section class="card">
+                <h2>📤 Step 2: Upload Tax Documents</h2>
+                <p class="info-text">Upload W-2, 1099-INT, and/or 1099-NEC forms (PDF only)</p>
+                
+                <div class="file-upload-wrapper">
+                    <input type="file" id="fileInput" name="files[]" multiple accept=".pdf">
+                    <label for="fileInput" class="file-upload-btn">
+                        Choose Files
+                    </label>
+                    <span id="fileNames" class="file-names">No files chosen</span>
+                </div>
+
+                <button type="button" id="processBtn" class="btn btn-primary">
+                    🔍 Process Documents
+                </button>
+
+                <div id="statusMessage" class="status-message"></div>
+                <div id="parseResults" class="parse-results"></div>
+            </section>
+
+            <!-- Step 3: Calculate Tax -->
+            <section class="card">
+                <h2>📈 Step 3: Calculate Tax Return</h2>
+                
+                <button type="button" id="calculateBtn" class="btn btn-primary" disabled>
+                    🧮 Calculate Tax Return
+                </button>
+
+                <div id="summaryResults" class="summary-results"></div>
+            </section>
+
+            <!-- Step 4: Download Form -->
+            <section class="card" id="downloadSection" style="display: none;">
+                <h2>📥 Step 4: Download Form 1040</h2>
+                
+                <button type="button" id="downloadBtn" class="btn btn-success">
+                    📄 Download Form 1040 PDF
+                </button>
+            </section>
+
+            <!-- Instructions -->
+            <section class="card instructions">
+                <h3>ℹ️ Instructions:</h3>
+                <ol>
+                    <li>Fill in your personal information (name, SSN, address, filing status)</li>
+                    <li>Upload your tax documents (PDF format only)</li>
+                    <li>Click "Process Documents" to extract data using AI</li>
+                    <li>Review the parsed data to ensure accuracy</li>
+                    <li>Click "Calculate Tax Return" to compute your taxes</li>
+                    <li>Download your Form 1040 PDF</li>
+                </ol>
+
+                <h3>📝 Supported Documents:</h3>
+                <ul>
+                    <li><strong>W-2:</strong> Wage and Tax Statement</li>
+                    <li><strong>1099-INT:</strong> Interest Income</li>
+                    <li><strong>1099-NEC:</strong> Nonemployee Compensation</li>
+                </ul>
+
+                <h3>⚠️ Important Notes:</h3>
+                <ul>
+                    <li>This is a <strong>prototype for educational purposes only</strong></li>
+                    <li>Do NOT use this for actual tax filing</li>
+                    <li>Always consult with a qualified tax professional</li>
+                    <li>Data is processed temporarily and not stored permanently</li>
+                </ul>
+            </section>
+        </main>
+
+        <footer>
+            <p>AI Tax Return Agent - Educational Prototype © 2024</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

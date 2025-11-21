@@ -1,0 +1,1072 @@
+AI Tax Return Agent - Complete Documentation
+Table of Contents
+
+Project Overview
+System Architecture
+Application Flow
+Module Documentation
+Document Parsing Approach
+Tax Calculation Logic
+Form Generation Process
+API Endpoints
+Frontend Implementation
+Installation and Setup
+
+
+1. Project Overview
+The AI Tax Return Agent is a Flask-based web application that automates personal tax return preparation. The system uses AI-powered document parsing to extract data from tax forms (W-2, 1099-INT, 1099-NEC), calculates federal tax liability based on 2024 IRS rules, and generates a completed Form 1040 PDF.
+Key Features
+
+Multi-document PDF upload and processing
+AI-powered data extraction using Mistral API via OpenRouter
+Progressive tax bracket calculations
+Automated Form 1040 PDF generation
+Session-based data management
+RESTful API architecture
+
+Technology Stack
+
+Backend Framework: Flask 3.0.0
+PDF Processing: pdfplumber, PyMuPDF
+PDF Generation: ReportLab
+AI Integration: OpenAI Python SDK (OpenRouter)
+Frontend: HTML5, CSS3, Vanilla JavaScript
+Session Management: Flask Sessions
+
+
+2. System Architecture
+Component Overview
+┌─────────────────────────────────────────────────────────┐
+│                     Flask Application                    │
+│                        (app.py)                          │
+└───────────────┬─────────────────────────────────────────┘
+                │
+        ┌───────┴───────┐
+        │               │
+┌───────▼──────┐ ┌─────▼─────────┐
+│   Frontend   │ │  Backend API  │
+│  Templates   │ │   Endpoints   │
+│   + Static   │ │               │
+└──────────────┘ └───────┬───────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+┌───────▼─────┐  ┌──────▼─────┐  ┌──────▼──────┐
+│  Document   │  │    Tax     │  │    Form     │
+│   Parser    │  │ Calculator │  │  Generator  │
+│             │  │            │  │             │
+└─────────────┘  └────────────┘  └─────────────┘
+        │
+┌───────▼─────────┐
+│  Mistral AI API │
+│  (OpenRouter)   │
+└─────────────────┘
+
+Directory Structure
+-------------------
+
+SANPROJ_AI_RETURN/
+├── app.py                      # Main Flask application
+├── config.py                   # Configuration and constants
+├── document_parser.py          # PDF parsing and AI extraction
+├── tax_calculator.py           # Tax calculation engine
+├── form_generator.py           # PDF form generation
+├── requirements.txt            # Python dependencies
+├── .env                        # Environment variables
+├── templates/
+│   └── index.html             # Main web interface
+└── static/
+    ├── css/
+    │   └── style.css          # Application styling
+    └── js/
+        └── main.js            # Client-side logic
+
+3. Application Flow
+Complete Workflow
+
+1. USER INPUT
+   └─> Personal Information Entry (Name, SSN, Address, Filing Status)
+   └─> Document Upload (W-2, 1099-INT, 1099-NEC PDFs)
+
+2. DOCUMENT PROCESSING (POST /upload)
+   └─> File validation and storage
+   └─> PDF text extraction (pdfplumber)
+   └─> Document type identification (AI)
+   └─> Data extraction per document type (AI)
+   └─> Session storage of parsed data
+
+3. TAX CALCULATION (POST /calculate)
+   └─> Income aggregation from all documents
+   └─> Standard deduction application
+   └─> Progressive tax bracket calculation
+   └─> Refund/owed determination
+   └─> Session storage of tax data
+
+4. FORM GENERATION
+   └─> PDF Form 1040 creation (ReportLab)
+   └─> Data population from calculations
+   └─> Temporary file storage
+
+5. DOWNLOAD (GET /download)
+   └─> PDF file transfer to user
+   └─> Session cleanup option
+   
+ Detailed Step-by-Step Flow
+Step 1: Upload and Parse Documents
+Frontend Action:
+
+User fills personal information form
+User selects one or more PDF files
+User clicks "Process Documents" button
+
+Backend Processing:
+
+Receive POST request at /upload endpoint
+Validate personal information completeness
+Validate file types (PDF only)
+Save uploaded files temporarily
+For each file:
+
+Extract text using pdfplumber
+Send text to AI for document type identification
+Based on type, extract structured data using AI
+Store parsed data in session
+
+
+Clean up temporary uploaded files
+Return parsing results to frontend
+
+Data Flow:PDF File → pdfplumber → Text Content → AI API → Structured JSON → Session Storage
+
+
+Step 2: Calculate Tax Return
+Frontend Action:
+
+User reviews parsed data
+User clicks "Calculate Tax Return" button
+
+Backend Processing:
+
+Receive POST request at /calculate endpoint
+Retrieve parsed documents from session
+Aggregate income from all documents:
+
+Sum all W-2 wages
+Sum all 1099-INT interest
+Sum all 1099-NEC compensation
+
+
+Calculate Adjusted Gross Income (AGI)
+Apply standard deduction based on filing status
+Calculate taxable income
+Apply progressive tax brackets
+Calculate total federal tax
+Compare tax with withholdings
+Determine refund or amount owed
+Generate Form 1040 PDF
+Store results in session
+Return summary to frontend
+
+Calculation Flow:
+Parsed Documents → Income Aggregation → AGI → Deduction → Taxable Income → Tax Brackets → Total Tax → Refund/Owed
+
+
+Step 3: Generate and Download Form
+Frontend Action:
+
+User reviews tax summary
+User clicks "Download Form 1040 PDF" button
+
+Backend Processing:
+
+Receive GET request at /download endpoint
+Retrieve PDF path from session
+Stream PDF file to user
+Browser downloads file
+
+
+4. Module Documentation
+4.1 config.py
+Purpose: Centralized configuration management for tax rules, API settings, and application constants.
+Key Components:
+Environment Variables
+pythonOPENROUTER_API_KEY     # API key for Mistral AI access
+MODEL_NAME             # Mistral model identifier
+OPENROUTER_BASE_URL    # API endpoint URL
+Tax Brackets (2024)
+Three sets of progressive tax brackets:
+
+TAX_BRACKETS_SINGLE: For single filers
+TAX_BRACKETS_MARRIED: For married filing jointly
+TAX_BRACKETS_HOH: For head of household
+
+Structure: List of tuples (income_limit, tax_rate)
+Example:
+pythonTAX_BRACKETS_SINGLE = [
+    (11600, 0.10),    # 10% up to $11,600
+    (47150, 0.12),    # 12% from $11,601 to $47,150
+    ...
+]
+Standard Deductions (2024)
+pythonSTANDARD_DEDUCTIONS = {
+    "Single": 14600,
+    "Married Filing Jointly": 29200,
+    "Married Filing Separately": 14600,
+    "Head of Household": 21900
+}
+Supported Document Types
+pythonSUPPORTED_DOCUMENTS = ["W-2", "1099-INT", "1099-NEC"]
+
+4.2 document_parser.py
+Purpose: Extracts and structures data from tax document PDFs using AI-powered parsing.
+Class: DocumentParser
+Initialization:
+pythondef __init__(self):
+    # Creates OpenAI client configured for OpenRouter
+    # Sets base URL to OpenRouter API
+    # Uses API key from environment variables
+```
+
+**Key Methods:**
+
+##### extract_text_from_pdf(pdf_path: str) -> str
+- Opens PDF file using pdfplumber
+- Iterates through all pages
+- Extracts text content from each page
+- Concatenates into single string
+- Returns complete document text
+- Handles errors gracefully
+
+**Technical Details:**
+- Uses pdfplumber for native text extraction
+- No OCR required for text-based PDFs
+- Returns empty string on failure
+
+##### identify_document_type(text: str) -> str
+- Sends first 1000 characters to AI
+- Prompts AI to identify form type
+- Validates response against supported types
+- Returns document type or "Unknown"
+
+**AI Prompt Structure:**
+```
+Analyze this tax document text and identify if it's a W-2, 1099-INT, or 1099-NEC form.
+Return ONLY the form type with no additional text.
+Response Validation:
+
+Checks if response contains any supported document type
+Returns first match found
+Returns "Unknown" if no match or error
+
+parse_w2(text: str) -> Dict
+
+Sends full W-2 text to AI
+Requests structured JSON extraction
+Extracts 6 key fields:
+
+wages (Box 1)
+federal_tax_withheld (Box 2)
+social_security_wages (Box 3)
+medicare_wages (Box 5)
+employer_name
+employee_name
+
+
+
+AI Response Processing:
+
+Receives AI response as text
+Uses regex to extract JSON object
+Parses JSON to Python dictionary
+Returns structured data
+Falls back to default structure on error
+
+Default W-2 Structure:
+python{
+    "wages": 0,
+    "federal_tax_withheld": 0,
+    "social_security_wages": 0,
+    "medicare_wages": 0,
+    "employer_name": "Not found",
+    "employee_name": "Not found"
+}
+parse_1099_int(text: str) -> Dict
+
+Extracts 4 key fields:
+
+interest_income (Box 1)
+early_withdrawal_penalty (Box 2)
+payer_name
+recipient_name
+
+
+
+Default 1099-INT Structure:
+python{
+    "interest_income": 0,
+    "early_withdrawal_penalty": 0,
+    "payer_name": "Not found",
+    "recipient_name": "Not found"
+}
+parse_1099_nec(text: str) -> Dict
+
+Extracts 3 key fields:
+
+nonemployee_compensation (Box 1)
+payer_name
+recipient_name
+
+
+
+Default 1099-NEC Structure:
+python{
+    "nonemployee_compensation": 0,
+    "payer_name": "Not found",
+    "recipient_name": "Not found"
+}
+parse_document(pdf_path: str) -> Dict
+Main orchestration method:
+
+Extracts text from PDF
+Identifies document type using AI
+Routes to appropriate parser method
+Adds document_type field to result
+Returns complete structured data or error
+
+Return Structure:
+python{
+    "document_type": "W-2" | "1099-INT" | "1099-NEC",
+    ...extracted fields...
+}
+
+4.3 tax_calculator.py
+Purpose: Implements federal tax calculation logic following 2024 IRS rules.
+Class: TaxCalculator
+Initialization:
+pythondef __init__(self):
+    # Maps filing statuses to appropriate tax bracket lists
+    self.tax_brackets = {
+        "Single": TAX_BRACKETS_SINGLE,
+        "Married Filing Jointly": TAX_BRACKETS_MARRIED,
+        ...
+    }
+Key Methods:
+calculate_tax(taxable_income: float, filing_status: str) -> Dict
+Purpose: Calculate federal income tax using progressive bracket system.
+Algorithm:
+
+Check if taxable income is zero or negative (return zero tax)
+Retrieve appropriate tax brackets for filing status
+Initialize tracking variables:
+
+total_tax = 0
+remaining_income = taxable_income
+previous_limit = 0
+
+
+For each bracket (limit, rate):
+
+Calculate income portion in this bracket
+Apply tax rate to bracket portion
+Add to total tax
+Subtract from remaining income
+Track for bracket details
+
+
+Calculate effective tax rate (total_tax / taxable_income)
+Return comprehensive calculation details
+
+Return Structure:
+python{
+    "taxable_income": float,
+    "total_tax": float,
+    "effective_rate": float,      # Percentage
+    "marginal_rate": float,        # Percentage
+    "bracket_details": [
+        {
+            "range": "$0 - $11,600",
+            "rate": "10%",
+            "income_in_bracket": float,
+            "tax_in_bracket": float
+        },
+        ...
+    ]
+}
+Example Calculation:
+For Single filer with $50,000 taxable income:
+
+First $11,600 at 10% = $1,160
+Next $35,550 at 12% = $4,266
+Next $2,850 at 22% = $627
+Total Tax = $6,053
+Effective Rate = 12.11%
+Marginal Rate = 22%
+
+aggregate_income(documents: List[Dict]) -> Dict
+Purpose: Combine income from all parsed tax documents.
+Process:
+
+Initialize counters for each income type
+Initialize counters for each document type
+Iterate through all parsed documents:
+
+If W-2: Add wages and federal withholding
+If 1099-INT: Add interest income
+If 1099-NEC: Add nonemployee compensation
+Increment document type counters
+
+
+Calculate total income (sum of all types)
+Return aggregated data
+
+Return Structure:
+python{
+    "total_income": float,
+    "total_wages": float,
+    "total_interest": float,
+    "total_nonemployee_compensation": float,
+    "total_federal_withheld": float,
+    "document_counts": {
+        "W-2": int,
+        "1099-INT": int,
+        "1099-NEC": int
+    }
+}
+calculate_refund_or_owed(tax_liability: float, federal_withheld: float) -> Dict
+Purpose: Determine if taxpayer receives refund or owes payment.
+Logic:
+pythondifference = federal_withheld - tax_liability
+
+if difference > 0:
+    return REFUND
+elif difference < 0:
+    return OWED
+else:
+    return EVEN
+Return Structure:
+python{
+    "status": "REFUND" | "OWED" | "EVEN",
+    "amount": float,
+    "message": str
+}
+calculate_complete_return(documents: List[Dict], personal_info: Dict) -> Dict
+Purpose: Orchestrate complete tax return calculation.
+Process Flow:
+
+Aggregate income from all documents
+Retrieve standard deduction for filing status
+Calculate AGI (simplified: total income)
+Calculate taxable income (AGI - standard deduction)
+Ensure taxable income not negative
+Calculate federal tax using bracket system
+Determine refund or amount owed
+Compile complete return data
+
+Return Structure:
+python{
+    "personal_info": {
+        "name": str,
+        "ssn": str,
+        "address": str,
+        "filing_status": str
+    },
+    "income": {
+        "total_income": float,
+        "total_wages": float,
+        "total_interest": float,
+        "total_nonemployee_compensation": float,
+        "total_federal_withheld": float,
+        "document_counts": dict
+    },
+    "deductions": {
+        "standard_deduction": float,
+        "itemized_deduction": 0
+    },
+    "agi": float,
+    "taxable_income": float,
+    "tax_calculation": {
+        "total_tax": float,
+        "effective_rate": float,
+        "marginal_rate": float,
+        "bracket_details": list
+    },
+    "payments": {
+        "federal_withheld": float
+    },
+    "refund_or_owed": {
+        "status": str,
+        "amount": float,
+        "message": str
+    }
+}
+
+4.4 form_generator.py
+Purpose: Generate filled IRS Form 1040 PDF documents using tax calculation data.
+Class: Form1040Generator
+Initialization:
+pythondef __init__(self):
+    # Store page dimensions for layout calculations
+    self.page_width, self.page_height = letter  # 8.5" x 11"
+```
+
+**Key Methods:**
+
+##### generate_form_1040(tax_data: Dict, output_path: str) -> str
+
+**Purpose:** Create complete Form 1040 PDF with all calculated data.
+
+**Process:**
+1. Create new PDF canvas
+2. Draw header section
+3. Draw personal information
+4. Draw filing status
+5. Draw income section
+6. Draw deductions section
+7. Draw tax calculation section
+8. Draw payments section
+9. Draw refund/owed section
+10. Draw footer disclaimers
+11. Save PDF file
+12. Return file path
+
+**Layout Structure:**
+```
+Page Layout (8.5" x 11"):
+├── Header (Top 1.5")
+│   ├── Form title and year
+│   ├── Generation timestamp
+│   └── Disclaimer
+├── Personal Info (1")
+├── Filing Status (0.8")
+├── Income Section (1.2")
+├── Deductions (1")
+├── Tax Calculation (0.8")
+├── Payments (0.6")
+├── Refund/Owed (0.6")
+└── Footer (Bottom 1")
+```
+
+##### _draw_header(c: canvas.Canvas)
+
+**Purpose:** Draw form title, year, and disclaimers.
+
+**Elements:**
+- Form title: "Form 1040" (16pt bold)
+- Subtitle: "U.S. Individual Income Tax Return" (10pt)
+- Tax year: "2024" (right aligned)
+- Generation timestamp
+- Prototype disclaimer in bold
+
+##### _draw_personal_info(c: canvas.Canvas, personal_info: Dict)
+
+**Purpose:** Display taxpayer identification information.
+
+**Fields:**
+- Name (from personal_info)
+- SSN (from personal_info)
+- Address (from personal_info)
+
+**Layout:** Left-aligned, 0.15" spacing between fields
+
+##### _draw_filing_status(c: canvas.Canvas, personal_info: Dict)
+
+**Purpose:** Display filing status with checkboxes.
+
+**Elements:**
+- All four filing status options
+- Checkbox [X] for selected status
+- Checkbox [ ] for unselected statuses
+
+**Status Options:**
+- Single
+- Married Filing Jointly
+- Married Filing Separately
+- Head of Household
+
+##### _draw_income_section(c: canvas.Canvas, income_data: Dict)
+
+**Purpose:** Display all income sources with totals.
+
+**Lines:**
+1. Wages, salaries, tips, etc. (from W-2)
+2. Interest income (from 1099-INT)
+3. Other income (from 1099-NEC)
+4. Total Income (bold, sum of above)
+
+**Formatting:**
+- Line labels left-aligned
+- Amounts right-aligned
+- Currency format: $XX,XXX.XX
+- Horizontal line separator
+
+##### _draw_deductions(c: canvas.Canvas, tax_data: Dict)
+
+**Purpose:** Display AGI, deductions, and taxable income.
+
+**Fields:**
+- Adjusted Gross Income (AGI)
+- Standard Deduction (from filing status)
+- Taxable Income (bold, AGI - deduction)
+
+##### _draw_tax_section(c: canvas.Canvas, tax_calculation: Dict)
+
+**Purpose:** Display calculated federal income tax.
+
+**Fields:**
+- Federal Income Tax (total)
+- Effective Tax Rate (percentage)
+- Marginal Tax Rate (percentage)
+
+##### _draw_payments_section(c: canvas.Canvas, payments: Dict)
+
+**Purpose:** Display tax payments made.
+
+**Fields:**
+- Federal Income Tax Withheld (from W-2s)
+
+##### _draw_refund_section(c: canvas.Canvas, refund_data: Dict)
+
+**Purpose:** Display final result with color coding.
+
+**Logic:**
+- REFUND: Green text, shows refund amount
+- OWED: Red text, shows amount owed
+- EVEN: Black text, shows zero balance
+
+**Font Size:** 11pt bold for emphasis
+
+##### _draw_footer(c: canvas.Canvas)
+
+**Purpose:** Legal disclaimers and warnings.
+
+**Text:**
+- "This is a prototype form generated by AI Tax Return Agent."
+- "DO NOT FILE THIS FORM WITH THE IRS."
+- "For demonstration and educational purposes only."
+
+##### generate_summary_report(tax_data: Dict) -> str
+
+**Purpose:** Create text-based summary for display.
+
+**Format:**
+```
+============================================================
+TAX RETURN SUMMARY
+============================================================
+
+TAXPAYER INFORMATION:
+  Name: [name]
+  Filing Status: [status]
+
+INCOME:
+  Wages (W-2): $XX,XXX.XX
+  Interest Income (1099-INT): $XXX.XX
+  Other Income (1099-NEC): $X,XXX.XX
+  TOTAL INCOME: $XX,XXX.XX
+
+DEDUCTIONS:
+  Standard Deduction: $XX,XXX.XX
+  Taxable Income: $XX,XXX.XX
+
+TAX CALCULATION:
+  Federal Income Tax: $X,XXX.XX
+  Effective Tax Rate: XX.XX%
+  Marginal Tax Rate: XX%
+
+PAYMENTS:
+  Federal Tax Withheld: $X,XXX.XX
+
+RESULT:
+  [Refund/Owed message]
+
+============================================================
+Return Type: Formatted string with proper alignment and spacing
+
+4.5 app.py (Flask Application)
+Purpose: Main web application handling HTTP requests, routing, and coordination.
+Application Configuration
+pythonapp = Flask(__name__)
+app.secret_key = secrets.token_hex(16)  # Secure session key
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
+app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()  # Temp storage
+Initialization
+pythonparser = DocumentParser()        # PDF parsing instance
+calculator = TaxCalculator()     # Tax calculation instance
+form_generator = Form1040Generator()  # PDF generation instance
+Route: GET /
+Purpose: Serve main application page.
+Process:
+
+Render index.html template
+Return HTML to browser
+
+URL: http://127.0.0.1:5000/
+Route: POST /upload
+Purpose: Handle document upload and parsing.
+Request Format:
+
+Content-Type: multipart/form-data
+Form Fields:
+
+name (text)
+ssn (text)
+address (text)
+filing_status (text)
+files[] (multiple PDF files)
+
+
+
+Process Flow:
+
+Extract form data
+Validate personal information completeness
+Validate file uploads exist
+Initialize result tracking
+For each uploaded file:
+
+Validate file extension (.pdf only)
+Secure filename using werkzeug
+Save to temporary directory
+Parse document using DocumentParser
+Handle parsing errors
+Store successful parses
+Build result structure
+Delete temporary file
+
+
+Validate at least one successful parse
+Store parsed_documents in session
+Store personal_info in session
+Return JSON response
+
+Response Format (Success):
+json{
+    "success": true,
+    "message": "Successfully parsed N document(s)",
+    "results": [
+        {
+            "filename": "sample_w2.pdf",
+            "type": "W-2",
+            "status": "success",
+            "data": {
+                "employer": "ABC Corp",
+                "wages": "$75,000.00",
+                "federal_withheld": "$12,500.00"
+            }
+        }
+    ]
+}
+Response Format (Error):
+json{
+    "success": false,
+    "error": "Error message",
+    "results": []  // Optional partial results
+}
+Security Measures:
+
+Secure filename sanitization
+File type validation
+File size limits (16MB)
+Temporary storage cleanup
+Session-based data isolation
+
+Route: POST /calculate
+Purpose: Calculate tax return from parsed documents.
+Request Format:
+
+Content-Type: application/json
+No body required (uses session data)
+
+Process Flow:
+
+Retrieve parsed_documents from session
+Retrieve personal_info from session
+Validate session data exists
+Call calculator.calculate_complete_return()
+Generate summary report
+Generate Form 1040 PDF
+
+Create timestamped filename
+Generate in temp directory
+Store path in session
+
+
+Format tax data for frontend
+Return JSON response
+
+Response Format (Success):
+json{
+    "success": true,
+    "summary": "Text summary...",
+    "tax_data": {
+        "total_income": "$83,950.75",
+        "agi": "$83,950.75",
+        "taxable_income": "$69,350.75",
+        "total_tax": "$10,500.00",
+        "federal_withheld": "$12,500.00",
+        "refund_status": "REFUND",
+        "refund_amount": "$2,000.00",
+        "effective_rate": "12.11%"
+    }
+}
+Response Format (Error):
+json{
+    "success": false,
+    "error": "Error message"
+}
+Route: GET /download
+Purpose: Download generated Form 1040 PDF.
+Process Flow:
+
+Retrieve pdf_path from session
+Retrieve pdf_filename from session
+Validate file exists
+Stream file using send_file()
+Set Content-Disposition: attachment
+Set MIME type: application/pdf
+
+Response: PDF file download
+Error Handling:
+
+404 if file not found
+500 for other errors
+
+Route: POST /reset
+Purpose: Clear session data for new calculation.
+Process:
+
+Call session.clear()
+Return success response
+
+Response:
+json{
+    "success": true
+}
+```
+
+#### Helper Function: allowed_file(filename)
+
+**Purpose:** Validate file extension.
+
+**Logic:**
+1. Check filename contains dot
+2. Split on last dot
+3. Get extension
+4. Convert to lowercase
+5. Check against ALLOWED_EXTENSIONS set
+
+**Return:** Boolean
+
+---
+
+## 5. Document Parsing Approach
+
+### Overview
+
+The document parsing system uses a two-stage AI-powered approach:
+1. Document type identification
+2. Structured data extraction
+
+### Stage 1: Document Type Identification
+
+**Input:** Raw PDF text (first 1000 characters)
+
+**Process:**
+1. Extract text from PDF using pdfplumber
+2. Send text snippet to Mistral AI
+3. Request identification as W-2, 1099-INT, or 1099-NEC
+4. Validate AI response against known types
+5. Return document type or "Unknown"
+
+**Prompt Design:**
+```
+Analyze this tax document text and identify if it's a W-2, 1099-INT, or 1099-NEC form.
+Return ONLY the form type (W-2, 1099-INT, or 1099-NEC) with no additional text.
+
+Document text:
+[First 1000 characters of extracted text]
+```
+
+**Rationale:**
+- First 1000 characters typically contain form title/identifier
+- Reduces API token usage
+- Faster processing
+- Form titles are standardized
+
+### Stage 2: Structured Data Extraction
+
+**Input:** Complete PDF text
+
+**Process:**
+1. Based on identified document type, select appropriate parser
+2. Send complete text to Mistral AI
+3. Request JSON-formatted extraction
+4. Specify exact field names and data types
+5. Use regex to extract JSON from response
+6. Parse JSON to Python dictionary
+7. Fallback to default structure on error
+
+**W-2 Extraction Prompt:**
+```
+Extract the following information from this W-2 form. Return ONLY a valid JSON object with these exact keys:
+- wages (Box 1: Wages, tips, other compensation)
+- federal_tax_withheld (Box 2: Federal income tax withheld)
+- social_security_wages (Box 3: Social security wages)
+- medicare_wages (Box 5: Medicare wages and tips)
+- employer_name
+- employee_name
+
+If a value is not found, use 0 for numbers or "Not found" for text.
+
+W-2 Document:
+[Complete document text]
+
+Return format example:
+{"wages": 50000.00, "federal_tax_withheld": 5000.00, ...}
+Key Design Principles:
+
+Explicit Field Names:
+
+AI receives exact key names to use
+Reduces parsing errors
+Ensures consistent structure
+
+
+Type Specifications:
+
+Numbers for financial fields
+Strings for text fields
+Zero/default values for missing data
+
+
+Box Number References:
+
+Links to official IRS form boxes
+Helps AI locate correct data
+Improves accuracy
+
+
+JSON-Only Response:
+
+Requests pure JSON output
+No explanatory text
+Easier to parse programmatically
+
+
+Example Format:
+
+Provides template for AI
+Reinforces structure requirements
+Shows data types
+
+
+
+Error Handling Strategy
+Level 1: PDF Text Extraction
+
+Try pdfplumber extraction
+Return empty string on failure
+Log error message
+
+Level 2: Document Identification
+
+Validate AI response against known types
+Return "Unknown" if no match
+Continue to allow manual correction
+
+Level 3: Data Extraction
+
+Use regex to find JSON in response
+Parse JSON with error catching
+Fall back to default structure
+All numeric fields default to 0
+All text fields default to "Not found"
+
+Default Structures:
+W-2:
+python{
+    "wages": 0,
+    "federal_tax_withheld": 0,
+    "social_security_wages": 0,
+    "medicare_wages": 0,
+    "employer_name": "Not found",
+    "employee_name": "Not found"
+}
+1099-INT:
+python{
+    "interest_income": 0,
+    "early_withdrawal_penalty": 0,
+    "payer_name": "Not found",
+    "recipient_name": "Not found"
+}
+1099-NEC:
+python{
+    "nonemployee_compensation": 0,
+    "payer_name": "Not found",
+    "recipient_name": "Not found"
+}
+Advantages of AI-Powered Approach
+
+Flexibility:
+
+Handles various PDF formats
+Works with scanned forms (if OCR preprocessed)
+Adapts to layout variations
+
+
+Accuracy:
+
+Understands context (Box 1 vs Box 2)
+Identifies relationships (employer name belongs to which box)
+Handles handwritten annotations
+
+
+Maintainability:
+
+No hard-coded coordinates
+No template matching required
+Easy to add new form types
+
+
+Robustness:
+
+Graceful degradation on errors
+Default values prevent crashes
+Clear error reporting
+
+
+
+Limitations
+
+API Dependency:
+
+Requires internet connection
+Subject to API rate limits
+Costs per document
+
+
+Processing Time:
+
+2-5 seconds per document
+Slower than template matching
+Acceptable for prototype
+
+
+Accuracy Variables:
+
+Depends on PDF quality
+Affected by unusual formatting
+May require validation
+
+
+
+
+6. Tax Calculation Logic
+Progressive Tax Bracket System
+The United States uses a progressive marginal tax rate system. Each portion of income is taxed at the rate for its bracket.
+Example for Single Filer:
+Income: $50,000
+Bracket Calculation:
+$0 - $11,600:     $11,600 × 10% = $1,160
+$11,601 - $47,150: $35,550 × 12% = $4,266
+$47,151 - $50,000: $2,
